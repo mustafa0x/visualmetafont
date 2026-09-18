@@ -2,3 +2,6 @@
 	path = lib/harfbuzz/harfbuzz
 	url = https://github.com/DigitalKhatt/harfbuzz.git
 	branch = justification
+[submodule "quran-assets"]
+	path = tools/QuranTextGenerator/files/tarteel/quran-assets
+	url = https://github.com/TarteelAI/quran-assets.git
