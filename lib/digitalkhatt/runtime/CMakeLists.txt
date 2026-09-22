@@ -32,7 +32,8 @@ else()
     FetchContent_Declare(
       pcre2
       GIT_REPOSITORY https://github.com/PCRE2Project/pcre2.git
-      GIT_TAG pcre2-10.47
+      GIT_TAG f454e231fe5006dd7ff8f4693fd2b8eb94333429
+      GIT_SHALLOW FALSE
       # Populate through FetchContent, then add it ourselves with
       # EXCLUDE_FROM_ALL so its install rules do not leak into this SDK.
       SOURCE_SUBDIR digitalkhatt-no-auto-add

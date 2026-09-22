@@ -33,7 +33,14 @@
 
 # output files
 files/quran_medina_inputtext.txt
+.build/
 build/
+dist/
+packages/android/.gradle/
+packages/android/*/.cxx/
+packages/android/*/build/
+packages/android/local.properties
+scripts/__pycache__/
 files/allquran.pdf
 files/allquran_overlapping.pdf
 files/medinafont_unicodes.lua

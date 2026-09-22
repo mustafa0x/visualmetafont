@@ -4,6 +4,14 @@ A graphical tool developed to allow the design of the Metafont-based dynamic fon
 
 This project is sponsored by [@tarteelAI](https://github.com/TarteelAI) [![TarteelAI](https://assets-global.website-files.com/6167e862f6dfba5084eb5554/61680717c50ec79defcdb062_logo-group.svg "TarteelAI")](https://www.tarteel.ai/)
 
+## Experimental native runtime
+
+`lib/digitalkhatt/runtime` exposes the DigitalKhatt engine through a versioned C ABI. The Android Prefab AAR and Apple XCFramework under `packages/` are experimental development artifacts, licensed under AGPL-3.0-or-later, and are not approved for production distribution in Muhaffidh.
+
+The manually dispatched `Experimental native runtime` GitHub workflow builds and verifies both platforms. Its default mode only retains temporary Actions artifacts. Publishing requires an explicit `publish_release` selection and creates an immutable GitHub prerelease named `native-runtime-v<version>`. Release assets include a complete corresponding-source archive, exact source revisions, SHA-256 checksums, the AGPL license, and HarfBuzz, PCRE2, and Android NDK LLVM notices.
+
+Android consumers link the Prefab target `engine::digitalkhatt`; Apple consumers import the checksummed XCFramework as a SwiftPM binary target named `DigitalKhattEngine`. Packaging links separate C and SwiftPM consumers against every Apple device/simulator slice. Neither artifact includes a DigitalKhatt font or Quran corpus.
+
 ## Key Workflow Steps in the Development Of a New DigitalKhatt Font
 
 The primary tool used for the design of a DigitalKhatt font is VisualMetaFont. It was developed initially as a tool to help in the design of the new Madinah Mushaf font and the digital Mushaf. Hence many features are specific to that font and the Quran typesetting and are hard coded in the tool. With the development of the old Madinah font, some of these hard coded and specific features were eliminated however many still exist and the process of making it more general and more font designer friendly is ongoing.

@@ -66,5 +66,13 @@ visible outlines).
 Shared installs export `digitalkhatt::engine` through
 `find_package(DigitalKhattEngine CONFIG REQUIRED)`.
 
-The runtime inherits this repository's AGPL-3.0-or-later license. Review those
-terms before distributing an application that embeds the library.
+The experimental Android Prefab AAR and Apple XCFramework are built from
+`packages/` by `.github/workflows/native-runtime.yml`. PCRE2 is pinned to the
+exact commit recorded in the build and release manifest; release artifacts do
+not resolve a movable dependency tag. The packages contain no font or Quran
+corpus.
+
+The runtime inherits this repository's AGPL-3.0-or-later license. Its native
+packages are development and evaluation artifacts, not an approval to embed
+DigitalKhatt in a privately sourced production application. Review those terms
+before distributing any application that links the library.
