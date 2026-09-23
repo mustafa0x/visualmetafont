@@ -62,6 +62,15 @@ def normalize_apple_archive(path):
         terminator = payload.index(0, strings_start + string_offset, strings_end)
         used_end = max(used_end, terminator + 1)
     data[payload_start + used_end:payload_start + strings_end] = b'\0' * (strings_end - used_end)
+    offset = 8
+    while offset < len(data):
+        if data[offset + 58:offset + 60] != b'`\n':
+            raise RuntimeError(f'invalid Apple archive member header: {path}')
+        size = int(bytes(data[offset + 48:offset + 58]).decode('ascii').strip())
+        data[offset + 16:offset + 28] = b'0'.ljust(12)
+        offset += 60 + size + (size % 2)
+    if offset != len(data):
+        raise RuntimeError(f'invalid Apple archive member sizes: {path}')
     path.write_bytes(data)
 
 
@@ -102,6 +111,12 @@ def verify_consumer_link(archive, temporary):
             '-o', str(consumer / f'consumer-{target}.dylib'),
         )
     print('Validated Apple consumer links for device arm64 and simulator arm64/x86_64')
+    if any(framework.glob('*/Headers/module.modulemap')):
+        raise RuntimeError('root module.modulemap collides with other XCFrameworks in Xcode')
+    wrapper = consumer / 'Sources/DigitalKhattEngine'
+    (wrapper / 'include').mkdir(parents=True)
+    (wrapper / 'include/DigitalKhattEngine.h').write_text('#include <digitalkhatt/engine.h>\n')
+    (wrapper / 'empty.c').write_text('#include "DigitalKhattEngine.h"\n')
     swift_source = consumer / 'Sources/Probe/main.swift'
     swift_source.parent.mkdir(parents=True)
     swift_source.write_text(
@@ -113,8 +128,10 @@ def verify_consumer_link(archive, temporary):
         'import PackageDescription\n'
         'let package = Package(name: "DigitalKhattConsumer", platforms: [.iOS(.v15)], '
         'products: [.executable(name: "Probe", targets: ["Probe"])], '
-        'targets: [.binaryTarget(name: "DigitalKhattEngine", '
+        'targets: [.binaryTarget(name: "DigitalKhattBinary", '
         'path: "DigitalKhattEngine.xcframework"), '
+        '.target(name: "DigitalKhattEngine", dependencies: ["DigitalKhattBinary"], '
+        'path: "Sources/DigitalKhattEngine", publicHeadersPath: "include"), '
         '.executableTarget(name: "Probe", dependencies: ["DigitalKhattEngine"])])\n'
     )
     for sdk, target in [
@@ -125,7 +142,7 @@ def verify_consumer_link(archive, temporary):
         sdk_path = run('xcrun', '--sdk', sdk, '--show-sdk-path', capture=True)
         run('xcrun', 'swift', 'build', '--triple', target, '--sdk', sdk_path,
             '--product', 'Probe', cwd=consumer)
-    print('Validated SwiftPM binary-target imports and links for all Apple slices')
+    print('Validated SwiftPM wrapper imports and links for all Apple slices')
 
 
 def verify_pcre2():
@@ -186,12 +203,6 @@ def main():
         shutil.copyfile(
             SOURCE / 'lib/digitalkhatt/runtime/include/digitalkhatt/engine.h',
             headers / 'engine.h',
-        )
-        (headers.parent / 'module.modulemap').write_text(
-            'module DigitalKhattEngine {\n'
-            '  header "digitalkhatt/engine.h"\n'
-            '  export *\n'
-            '}\n'
         )
         framework = temporary / 'DigitalKhattEngine.xcframework'
         run(

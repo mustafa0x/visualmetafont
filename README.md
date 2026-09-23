@@ -10,7 +10,7 @@ This project is sponsored by [@tarteelAI](https://github.com/TarteelAI) [![Tarte
 
 The manually dispatched `Experimental native runtime` GitHub workflow builds and verifies both platforms. Its default mode only retains temporary Actions artifacts. Publishing requires an explicit `publish_release` selection and creates an immutable GitHub prerelease named `native-runtime-v<version>`. Release assets include a complete corresponding-source archive, exact source revisions, SHA-256 checksums, the AGPL license, and HarfBuzz, PCRE2, and Android NDK LLVM notices.
 
-Android consumers link the Prefab target `engine::digitalkhatt`; Apple consumers import the checksummed XCFramework as a SwiftPM binary target named `DigitalKhattEngine`. Packaging links separate C and SwiftPM consumers against every Apple device/simulator slice. Neither artifact includes a DigitalKhatt font or Quran corpus.
+Android consumers link the Prefab target `engine::digitalkhatt`; Apple consumers use a checked SwiftPM binary target (`DigitalKhattBinary`) behind a C wrapper target (`DigitalKhattEngine`) that exports `<digitalkhatt/engine.h>`. The XCFramework omits a root `module.modulemap`, which otherwise collides with other static XCFrameworks in Xcode. Packaging links separate C and SwiftPM consumers against every Apple device/simulator slice. Neither artifact includes a DigitalKhatt font or Quran corpus.
 
 ## Key Workflow Steps in the Development Of a New DigitalKhatt Font
 
