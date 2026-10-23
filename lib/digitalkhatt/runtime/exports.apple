@@ -14,3 +14,5 @@ _dk_page_destroy
 _dk_page_get_line_v1
 _dk_page_get_glyph_v1
 _dk_page_line_count
+_dk_engine_create_from_file_for_profile_v1
+_dk_engine_create_from_memory_for_profile_v1

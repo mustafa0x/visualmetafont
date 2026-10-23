@@ -127,13 +127,16 @@ def main():
             'access, set `PCRE2_SOURCE_DIR="$PWD/third_party/pcre2"` before running '
             'the corresponding `scripts/package-native-*.{sh,py}` command.\n\n'
             'To repeat the release workflow conformance tests, obtain its test-only '
-            'font from the pinned source revision without adding it to a package:\n\n'
+            'fonts without adding them to a package:\n\n'
             '```sh\n'
             f'curl -fL https://raw.githubusercontent.com/mustafa0x/visualmetafont/{source_revision}/examples/testvarfont/digitalkhatt-cff2.otf -o /tmp/digitalkhatt-cff2.otf\n'
             "echo 'b816044399d3d2e1c0cef8245a3be997d1d3c48d35486f0448d2473d7e81b132  /tmp/digitalkhatt-cff2.otf' | shasum -a 256 --check\n"
+            'curl -fL https://muhaffidh.app/dk-fonts/oldmadina.otf -o /tmp/oldmadina.otf\n'
+            "echo '86fc18f670aec9de17fe7ad310b8cfd86848c41aa966e09c4bf67f5f083d6174  /tmp/oldmadina.otf' | shasum -a 256 --check\n"
             'cmake -S lib/digitalkhatt/runtime -B build/native-runtime -G Ninja '
             '-DCMAKE_BUILD_TYPE=Release '
             '-DDIGITALKHATT_ENGINE_TEST_FONT=/tmp/digitalkhatt-cff2.otf '
+            '-DDIGITALKHATT_ENGINE_OLD_MADINAH_TEST_FONT=/tmp/oldmadina.otf '
             '-DFETCHCONTENT_SOURCE_DIR_PCRE2="$PWD/third_party/pcre2" '
             '-DFETCHCONTENT_FULLY_DISCONNECTED=ON\n'
             'cmake --build build/native-runtime --parallel\n'

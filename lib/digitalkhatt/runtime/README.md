@@ -48,6 +48,16 @@ The runtime accepts the two-axis DigitalKhatt runtime profile:
 
 Tatweel values crossing the ABI are normalized coordinates in `[-1, 1]`.
 
+### Old Madinah development profile
+
+The additive `dk_engine_create_from_file_for_profile_v1` and `dk_engine_create_from_memory_for_profile_v1` constructors accept an explicit page profile. Existing constructors still select New Madinah and retain every runtime-font requirement above; existing structures and ABI major 1 are unchanged.
+
+`DK_PAGE_PROFILE_MADINAH_1405_V1` selects the experimental Old Madinah policy. It accepts static CFF2 fonts with GSUB, GPOS, GDEF, 1000 UPEM, and no JTST, HVAR, or fvar tables. The application must pin the intended font; accepting this table contract does not authenticate an edition. A page's profile must match its engine's creation profile. Static engines reject nonzero JTST line target widths and nonzero outline tatweel coordinates; use the page API for feature-based justification.
+
+Old Madinah follows the browser's final-ascendant, lam/dal, and kaf/noon feature rules without changing New Madinah output. It shapes at the base font size and applies fractional scaling afterward; decorative headings and basmala use an independent 0.9 scale. Opening-page basmala that the host wants justified must be supplied as ordinary text, as in the browser. Corpus loading, Tajweed, baselines, ornaments, hit testing, and platform rendering remain host-owned.
+
+These additions remain experimental development support, not approval for production distribution in Muhaffidh. The release workflow checksum-verifies an external Old Madinah test font and runs its conformance test without bundling the font in SDK artifacts.
+
 ## Build and test
 
 ```sh
@@ -62,6 +72,10 @@ Set `DIGITALKHATT_ENGINE_TEST_FONT` to exercise another compatible font. Set
 `DIGITALKHATT_ENGINE_PAGE_PARITY_FONT` to a corrected compiler runtime font to
 enable the strict page-43 parity fixture (15 lines, 1,352 glyphs, and 1,230
 visible outlines).
+
+Set `DIGITALKHATT_ENGINE_OLD_MADINAH_TEST_FONT` to an external static Old Madinah font to enable the pilot test. The tested font is Muhaffidh's `public/dk-fonts/oldmadina.otf`, SHA-256 `86fc18f670aec9de17fe7ad310b8cfd86848c41aa966e09c4bf67f5f083d6174`. It is not bundled in this SDK. The regression freezes web page 604 line 4 glyph/cluster output, verifies strict legacy constructors, file/memory ownership, unsupported contracts, profile mismatch, static outline rules, concurrency, and page lifetime. Ordinary tests still run without that optional external font; enabling the Old Madinah test is required when validating this pilot.
+
+`digitalkhatt_old_madinah_probe FONT INPUT.tsv` emits public-API geometry and base outlines for an external corpus. Muhaffidh's `native/scripts/check_old_madinah_runtime.mjs` drives it against all 604 web pages, including heading/basmala scaling, cluster/variant selection, positioned advances/offsets, and outlines. Integer requested widths permit at most 0.5 font units of placement difference from the web's fractional widths. This does not validate platform page furniture, interaction, or painted Tajweed.
 
 Shared installs export `digitalkhatt::engine` through
 `find_package(DigitalKhattEngine CONFIG REQUIRED)`.

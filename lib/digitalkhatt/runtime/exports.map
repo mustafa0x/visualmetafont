@@ -17,6 +17,8 @@ DIGITALKHATT_ENGINE_0.1 {
 
 DIGITALKHATT_ENGINE_0.2 {
   global:
+    dk_engine_create_from_file_for_profile_v1;
+    dk_engine_create_from_memory_for_profile_v1;
     dk_engine_shape_page_utf16_v1;
     dk_page_destroy;
     dk_page_get_line_v1;

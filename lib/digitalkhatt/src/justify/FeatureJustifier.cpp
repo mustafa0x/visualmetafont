@@ -168,6 +168,7 @@ struct JustInfo {
   vector<LayoutResult> layoutResult;
   hb_font_t* font;
   bool useCustomShapingCallbacks;
+  bool oldMadinah;
 };
 
 static const TextString rightNoJoinLetters = u"آاٱأإدذرزوؤءة";
@@ -476,6 +477,8 @@ static const auto regexBeh = vector<Regex16>{makeRegex16(u"^.+(?<k1>[بتثني�
 static const auto regexBehNonGreedy = vector<Regex16>{makeRegex16(u"^.+?(?<k1>[بتثنيسشصض][بتثنيم]).+$")};
 static const auto regexFinaAscendant = vector<Regex16>{
     makeRegex16(formatPattern(u"^.*(?<k1>[%1][%2])$", rightKashExp + u"ل", finalAscendant))};
+static const auto regexOldFinaAscendant = vector<Regex16>{
+    makeRegex16(formatPattern(u"^.*(?<k1>[%1][%2])$", rightKashExp, finalAscendant))};
 static const auto regexOtherKashidas = vector<Regex16>{
     makeRegex16(formatPattern(u".*(?<k1>[%1][رز])", rightKashExp)),
     makeRegex16(formatPattern(u".*(?<k1>[%1](?:[%2]|[%3]))", rightKashExp, mediLeftAsendant, leftKashNoRaZay)),
@@ -607,8 +610,7 @@ static AppliedResult applyKashida(
   } else if (
       chark3 == U'ل' &&
       (chark4 == U'ك' ||
-       // chark4 == U'د' ||
-       // chark4 == U'ذ' ||
+       (justInfo.oldMadinah && (chark4 == U'د' || chark4 == U'ذ')) ||
        chark4 == U'ة' ||
        (chark4 == U'ه' &&
         subWordInfo.baseIndexes.back() == secondMatchIndex))) {
@@ -685,7 +687,7 @@ static AppliedResult applyKaf(
   auto firstPrevFeatures = tempResult[firstIndexInLine];
   auto secondPrevFeatures = tempResult[secondIndexInLine];
 
-  if (chark4 == U'ن') {
+  if (!justInfo.oldMadinah && chark4 == U'ن') {
     for (const auto& feature : secondPrevFeatures) {
       if (feature.name == "cv01" && feature.value > 0) {
         return AppliedResult::Forbiden;
@@ -752,7 +754,7 @@ static bool applyKashidasSubWords(
       type = StretchType::Beh;
       break;
     case StretchType::FinaAscendant:
-      regExprs = regexFinaAscendant;
+      regExprs = justInfo.oldMadinah ? regexOldFinaAscendant : regexFinaAscendant;
       break;
     case StretchType::OtherKashidas:
       regExprs = regexOtherKashidas;
@@ -1065,7 +1067,7 @@ static JustResultByLine justifyLine(
     const LineTextInfo& lineTextInfo, hb_font_t* font,
     double fontSizeLineWidthRatio, int spaceWidth, JustOption justOption,
     FeatureJustificationLayout& layout, bool useCustomShapingCallbacks,
-    SpaceStretchPolicy spaceStretchPolicy) {
+    SpaceStretchPolicy spaceStretchPolicy, bool oldMadinah) {
   auto desiredWidth = FONTSIZE / fontSizeLineWidthRatio;
 
   auto lineText = lineTextInfo.lineText;
@@ -1090,7 +1092,7 @@ static JustResultByLine justifyLine(
   result.simpleSpacing = spaceWidth;
   result.ayaSpacing = spaceWidth;
 
-  JustInfo justInfo{.fontFeatures = {}, .desiredWidth = desiredWidth, .textLineWidth = currentLineWidth, .layoutResult = layOutResult, .font = font, .useCustomShapingCallbacks = useCustomShapingCallbacks};
+  JustInfo justInfo{.fontFeatures = {}, .desiredWidth = desiredWidth, .textLineWidth = currentLineWidth, .layoutResult = layOutResult, .font = font, .useCustomShapingCallbacks = useCustomShapingCallbacks, .oldMadinah = oldMadinah};
 
   if (diff > 0) {
     // stretch
@@ -1475,7 +1477,7 @@ std::vector<LineLayoutInfo> FeatureJustifier::justifyPageUsingFeatures(
       justResultByLine = justifyLine(
           lineTextInfo, justifyFont.get(), fontSizeLineWidthRatio * fontRatio,
           spaceWidth, justOption, layout_, useCustomShapingCallbacks,
-          spaceStretchPolicy);
+          spaceStretchPolicy, mushafLayout == "oldmadinah");
     }
 
     Font ownedShapeFont{nullptr, hb_font_destroy};

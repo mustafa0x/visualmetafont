@@ -218,6 +218,8 @@ def main():
         for symbol in [
             '_dk_engine_abi_version',
             '_dk_engine_create_from_memory',
+            '_dk_engine_create_from_file_for_profile_v1',
+            '_dk_engine_create_from_memory_for_profile_v1',
             '_dk_engine_shape_page_utf16_v1',
             '_dk_engine_emit_glyph_outline_v1',
         ]:

@@ -45,7 +45,11 @@ def main():
             'harfbuzz_revision': git('rev-parse', 'HEAD:lib/harfbuzz/harfbuzz'),
             'pcre2_revision': PCRE2_REVISION,
         },
-        'engine': {'abi': 1, 'cmake_version': '0.2.0'},
+        'engine': {
+            'abi': 1,
+            'cmake_version': '0.2.0',
+            'page_profiles': ['madinah-1441-v1', 'madinah-1405-v1'],
+        },
         'toolchains': {
             'android_ndk': '27.1.12297006',
             'cmake': '3.28.3',

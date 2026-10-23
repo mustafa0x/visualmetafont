@@ -42,8 +42,11 @@ jobs:
             exit 1
           }
           echo 'b816044399d3d2e1c0cef8245a3be997d1d3c48d35486f0448d2473d7e81b132  examples/testvarfont/digitalkhatt-cff2.otf' | sha256sum --check
+          curl -fL https://muhaffidh.app/dk-fonts/oldmadina.otf -o "$RUNNER_TEMP/oldmadina.otf"
+          echo "86fc18f670aec9de17fe7ad310b8cfd86848c41aa966e09c4bf67f5f083d6174  $RUNNER_TEMP/oldmadina.otf" | sha256sum --check
           cmake -S lib/digitalkhatt/runtime -B build/native-runtime -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            -DDIGITALKHATT_ENGINE_OLD_MADINAH_TEST_FONT="$RUNNER_TEMP/oldmadina.otf"
           cmake --build build/native-runtime --parallel
           ctest --test-dir build/native-runtime --output-on-failure
           python scripts/package-native-source.py "$VERSION"

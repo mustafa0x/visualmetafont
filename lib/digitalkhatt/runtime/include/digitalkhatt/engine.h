@@ -46,7 +46,7 @@ typedef struct dk_line_request_v1 {
   uint32_t flags;
   const uint16_t* text;
   uint64_t text_length;
-  /* Font units. Zero disables the font's JTST target-width pass. */
+  /* Font units. Zero disables JTST; static Old Madinah requires zero. */
   int32_t target_width;
 } dk_line_request_v1_t;
 
@@ -90,7 +90,9 @@ typedef struct dk_glyph_v1 {
 typedef uint32_t dk_page_profile_t;
 enum {
   /* Canonical New Madinah page-wide feature planning, revision 1. */
-  DK_PAGE_PROFILE_MADINAH_1441_V1 = 1u
+  DK_PAGE_PROFILE_MADINAH_1441_V1 = 1u,
+  /* Experimental Old Madinah feature policy for static CFF2 fonts. */
+  DK_PAGE_PROFILE_MADINAH_1405_V1 = 2u
 };
 
 typedef uint32_t dk_page_line_role_t;
@@ -228,6 +230,18 @@ DK_ENGINE_API dk_status_t dk_engine_create_from_file(const char* font_path,
 DK_ENGINE_API dk_status_t dk_engine_create_from_memory(const void* font_data,
                                                         size_t font_size,
                                                         dk_engine_t** out_engine);
+/*
+ * Explicit profile constructors. The original constructors retain the strict
+ * New Madinah runtime-font contract. The Old Madinah profile accepts static
+ * CFF2/GSUB/GPOS/GDEF fonts with 1000 UPEM and no JTST, HVAR, or fvar tables.
+ * Callers remain responsible for pinning the intended edition's font.
+ * A page's profile must match the profile used to create its engine.
+ */
+DK_ENGINE_API dk_status_t dk_engine_create_from_file_for_profile_v1(
+    const char* font_path, dk_page_profile_t profile, dk_engine_t** out_engine);
+DK_ENGINE_API dk_status_t dk_engine_create_from_memory_for_profile_v1(
+    const void* font_data, size_t font_size, dk_page_profile_t profile,
+    dk_engine_t** out_engine);
 DK_ENGINE_API void dk_engine_destroy(dk_engine_t* engine);
 DK_ENGINE_API uint32_t dk_engine_upem(const dk_engine_t* engine);
 
@@ -235,7 +249,8 @@ DK_ENGINE_API uint32_t dk_engine_upem(const dk_engine_t* engine);
  * Shapes one independent RTL Arabic UTF-16 line. This low-level operation
  * optionally runs the font's JTST target-width pass; it does not apply a
  * Mushaf page profile or FeatureJustifier page policy. Input text is copied
- * before return. Calls are independent and may run concurrently.
+ * before return. Calls are independent and may run concurrently. Static Old
+ * Madinah engines require target_width == 0; use the page API to justify.
  */
 DK_ENGINE_API dk_status_t dk_engine_shape_line_v1(
     const dk_engine_t* engine,
@@ -283,6 +298,7 @@ DK_ENGINE_API dk_status_t dk_page_get_glyph_v1(
  * LTAT/RTAT coordinates. A valid glyph with no outline emits no commands and
  * returns DK_STATUS_OK. A callback may return DK_STATUS_CANCELLED or another
  * error; remaining commands are skipped and that status is returned.
+ * Static Old Madinah fonts require both tatweel coordinates to be zero.
  * Callbacks must not throw across the C boundary.
  */
 DK_ENGINE_API dk_status_t dk_engine_emit_glyph_outline_v1(

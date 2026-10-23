@@ -39,6 +39,8 @@ constexpr hb_tag_t kRequiredTables[] = {
     HB_TAG('G', 'S', 'U', 'B'),
     HB_TAG('G', 'P', 'O', 'S'),
     HB_TAG('G', 'D', 'E', 'F'),
+};
+constexpr hb_tag_t kRuntimeTables[] = {
     HB_TAG('J', 'T', 'S', 'T'),
     HB_TAG('f', 'v', 'a', 'r'),
     HB_TAG('H', 'V', 'A', 'R'),
@@ -160,12 +162,14 @@ struct dk_engine {
   Face face;
   uint32_t upem;
   uint32_t glyph_count;
+  dk_page_profile_t profile;
 
   dk_engine(Face font_face, uint32_t units_per_em,
-            uint32_t font_glyph_count)
+            uint32_t font_glyph_count, dk_page_profile_t page_profile)
       : face(std::move(font_face)),
         upem(units_per_em),
-        glyph_count(font_glyph_count) {}
+        glyph_count(font_glyph_count),
+        profile(page_profile) {}
 };
 
 struct GlyphResult {
@@ -235,10 +239,14 @@ class RuntimeFeatureProvider final
       : engine_(engine) {}
 
   hb_font_t* createFont(double scale, bool) override {
-    return create_font(engine_.face.get(), engine_.upem, scale).release();
+    return create_font(engine_.face.get(), engine_.upem,
+                       engine_.profile == DK_PAGE_PROFILE_MADINAH_1405_V1
+                           ? 1.0 : scale).release();
   }
   double effectiveFontScale(double requested_scale) const override {
-    return effective_font_scale(engine_.upem, requested_scale);
+    return engine_.profile == DK_PAGE_PROFILE_MADINAH_1405_V1
+               ? requested_scale
+               : effective_font_scale(engine_.upem, requested_scale);
   }
   bool useCustomShapingCallbacks() const override { return false; }
   int scaleBy() const override { return 0; }
@@ -268,7 +276,7 @@ bool valid_page_options(const dk_engine_t& engine,
                         const dk_page_options_v1_t* options,
                         size_t line_count) {
   if (!options || options->struct_size < DK_PAGE_OPTIONS_V1_SIZE ||
-      options->profile != DK_PAGE_PROFILE_MADINAH_1441_V1 ||
+      options->profile != engine.profile ||
       options->flags != 0 || options->page_width <= 0 ||
       options->line_stride < DK_PAGE_LINE_INPUT_V1_SIZE || line_count == 0 ||
       line_count > static_cast<size_t>(std::numeric_limits<int>::max()) ||
@@ -344,7 +352,8 @@ bool is_ayah_space(const uint16_t* text, size_t length, size_t cluster) {
          (cluster + 1 < length && text[cluster + 1] == 0x06ddu);
 }
 
-dk_status_t finish_engine(Blob blob, dk_engine_t** out_engine) {
+dk_status_t finish_engine(Blob blob, dk_page_profile_t profile,
+                          dk_engine_t** out_engine) {
   if (!blob || hb_blob_get_length(blob.get()) == 0) {
     return DK_STATUS_INVALID_FONT;
   }
@@ -361,11 +370,18 @@ dk_status_t finish_engine(Blob blob, dk_engine_t** out_engine) {
   for (const hb_tag_t tag : kRequiredTables) {
     if (!has_table(face.get(), tag)) return DK_STATUS_UNSUPPORTED_FONT;
   }
-  if (!has_runtime_axes(face.get())) return DK_STATUS_UNSUPPORTED_FONT;
+  const bool runtime = profile == DK_PAGE_PROFILE_MADINAH_1441_V1;
+  for (const hb_tag_t tag : kRuntimeTables) {
+    if (has_table(face.get(), tag) != runtime) return DK_STATUS_UNSUPPORTED_FONT;
+  }
+  if (runtime ? !has_runtime_axes(face.get())
+              : upem != 1000 || hb_ot_var_get_axis_count(face.get()) != 0) {
+    return DK_STATUS_UNSUPPORTED_FONT;
+  }
   hb_face_make_immutable(face.get());
 
   auto engine =
-      std::make_unique<dk_engine>(std::move(face), upem, glyph_count);
+      std::make_unique<dk_engine>(std::move(face), upem, glyph_count, profile);
   *out_engine = engine.release();
   return DK_STATUS_OK;
 }
@@ -393,13 +409,23 @@ const char* dk_status_message(dk_status_t status) {
 
 dk_status_t dk_engine_create_from_file(const char* font_path,
                                         dk_engine_t** out_engine) {
+  return dk_engine_create_from_file_for_profile_v1(
+      font_path, DK_PAGE_PROFILE_MADINAH_1441_V1, out_engine);
+}
+
+dk_status_t dk_engine_create_from_file_for_profile_v1(
+    const char* font_path, dk_page_profile_t profile, dk_engine_t** out_engine) {
   if (!out_engine) return DK_STATUS_INVALID_ARGUMENT;
   *out_engine = nullptr;
-  if (!font_path || !*font_path) return DK_STATUS_INVALID_ARGUMENT;
+  if (!font_path || !*font_path ||
+      (profile != DK_PAGE_PROFILE_MADINAH_1441_V1 &&
+       profile != DK_PAGE_PROFILE_MADINAH_1405_V1)) {
+    return DK_STATUS_INVALID_ARGUMENT;
+  }
   try {
     Blob blob{hb_blob_create_from_file_or_fail(font_path)};
     if (!blob) return DK_STATUS_IO_ERROR;
-    return finish_engine(std::move(blob), out_engine);
+    return finish_engine(std::move(blob), profile, out_engine);
   } catch (const std::bad_alloc&) {
     return DK_STATUS_OUT_OF_MEMORY;
   } catch (...) {
@@ -409,10 +435,19 @@ dk_status_t dk_engine_create_from_file(const char* font_path,
 
 dk_status_t dk_engine_create_from_memory(const void* font_data, size_t font_size,
                                           dk_engine_t** out_engine) {
+  return dk_engine_create_from_memory_for_profile_v1(
+      font_data, font_size, DK_PAGE_PROFILE_MADINAH_1441_V1, out_engine);
+}
+
+dk_status_t dk_engine_create_from_memory_for_profile_v1(
+    const void* font_data, size_t font_size, dk_page_profile_t profile,
+    dk_engine_t** out_engine) {
   if (!out_engine) return DK_STATUS_INVALID_ARGUMENT;
   *out_engine = nullptr;
   if (!font_data || font_size == 0 ||
-      font_size > std::numeric_limits<unsigned>::max()) {
+      font_size > std::numeric_limits<unsigned>::max() ||
+      (profile != DK_PAGE_PROFILE_MADINAH_1441_V1 &&
+       profile != DK_PAGE_PROFILE_MADINAH_1405_V1)) {
     return DK_STATUS_INVALID_ARGUMENT;
   }
   try {
@@ -422,7 +457,7 @@ dk_status_t dk_engine_create_from_memory(const void* font_data, size_t font_size
     if (!blob || hb_blob_get_length(blob.get()) != font_size) {
       return DK_STATUS_OUT_OF_MEMORY;
     }
-    return finish_engine(std::move(blob), out_engine);
+    return finish_engine(std::move(blob), profile, out_engine);
   } catch (const std::bad_alloc&) {
     return DK_STATUS_OUT_OF_MEMORY;
   } catch (...) {
@@ -446,7 +481,9 @@ dk_status_t dk_engine_shape_line_v1(const dk_engine_t* engine,
       !request->text || request->text_length == 0 ||
       request->text_length >
           static_cast<uint64_t>(std::numeric_limits<int>::max()) ||
-      request->target_width < 0) {
+      request->target_width < 0 ||
+      (engine->profile == DK_PAGE_PROFILE_MADINAH_1405_V1 &&
+       request->target_width != 0)) {
     return DK_STATUS_INVALID_ARGUMENT;
   }
 
@@ -597,7 +634,8 @@ dk_status_t dk_engine_shape_page_utf16_v1(
                                      dk::ShrinkType::None};
     auto layout = justifier.justifyPageUsingFeatures(
         1.0, options->page_width, page_lines, true, false,
-        HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS, profile, "newmadinah",
+        HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS, profile,
+        engine->profile == DK_PAGE_PROFILE_MADINAH_1405_V1 ? "oldmadinah" : "newmadinah",
         dk::justify::SpaceStretchPolicy::Madinah1441);
     if (layout.size() != line_count) return DK_STATUS_SHAPING_FAILED;
 
@@ -623,20 +661,26 @@ dk_status_t dk_engine_shape_page_utf16_v1(
       result.role = input.role;
       result.alignment = input.alignment;
       result.desired_width = source.desiredLineWidth;
-      result.font_scale = source.fontSize;
+      result.font_scale = engine->profile == DK_PAGE_PROFILE_MADINAH_1405_V1 &&
+                                  input.role != DK_PAGE_LINE_ROLE_ORDINARY
+                              ? 0.9 : source.fontSize;
       result.x_scale = source.xscale;
       result.glyphs.reserve(source.glyphs.size());
       const auto text_length = static_cast<size_t>(input.text_length);
+      const double glyph_scale = engine->profile == DK_PAGE_PROFILE_MADINAH_1405_V1
+                                     ? result.font_scale : 1.0;
+      const double spacing_scale = engine->profile == DK_PAGE_PROFILE_MADINAH_1405_V1
+                                       ? glyph_scale / source.fontSize : 1.0;
       for (const auto& glyph : source.glyphs) {
         if (!valid_page_glyph(*engine, glyph, input.text_length)) {
           return DK_STATUS_SHAPING_FAILED;
         }
-        double x_advance = glyph.x_advance;
+        double x_advance = glyph.x_advance * glyph_scale;
         const auto cluster = static_cast<size_t>(glyph.cluster);
         if (input.text[cluster] == 0x0020u) {
-          x_advance = is_ayah_space(input.text, text_length, cluster)
-                          ? source.ayahSpaceAdvance
-                          : source.simpleSpaceAdvance;
+          x_advance = (is_ayah_space(input.text, text_length, cluster)
+                           ? source.ayahSpaceAdvance
+                           : source.simpleSpaceAdvance) * spacing_scale;
         }
         if (!std::isfinite(x_advance)) return DK_STATUS_SHAPING_FAILED;
         result.final_width += x_advance;
@@ -644,9 +688,9 @@ dk_status_t dk_engine_shape_page_utf16_v1(
             static_cast<uint32_t>(glyph.codepoint),
             static_cast<uint32_t>(glyph.cluster),
             x_advance,
-            static_cast<double>(glyph.y_advance),
-            static_cast<double>(glyph.x_offset),
-            static_cast<double>(glyph.y_offset),
+            glyph.y_advance * glyph_scale,
+            glyph.x_offset * glyph_scale,
+            glyph.y_offset * glyph_scale,
             glyph.lefttatweel,
             glyph.righttatweel,
         });
@@ -728,7 +772,9 @@ dk_status_t dk_engine_emit_glyph_outline_v1(
       !std::isfinite(variant->right_tatweel) ||
       std::abs(variant->left_tatweel) > 1.0 ||
       std::abs(variant->right_tatweel) > 1.0 ||
-      variant->glyph_id >= engine->glyph_count) {
+      variant->glyph_id >= engine->glyph_count ||
+      (engine->profile == DK_PAGE_PROFILE_MADINAH_1405_V1 &&
+       (variant->left_tatweel != 0 || variant->right_tatweel != 0))) {
     return DK_STATUS_INVALID_ARGUMENT;
   }
 
@@ -739,7 +785,9 @@ dk_status_t dk_engine_emit_glyph_outline_v1(
         static_cast<int>(std::lround(variant->left_tatweel * 16384.0)),
         static_cast<int>(std::lround(variant->right_tatweel * 16384.0)),
     };
-    hb_font_set_var_coords_normalized(font.get(), coordinates, 2);
+    if (engine->profile == DK_PAGE_PROFILE_MADINAH_1441_V1) {
+      hb_font_set_var_coords_normalized(font.get(), coordinates, 2);
+    }
     DrawContext context{sink};
     hb_font_draw_glyph(font.get(), variant->glyph_id, draw_functions(),
                        &context);

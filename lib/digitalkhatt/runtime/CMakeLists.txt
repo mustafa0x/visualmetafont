@@ -198,6 +198,26 @@ if(DIGITALKHATT_ENGINE_BUILD_TESTS)
     COMMAND digitalkhatt_page_conformance
       "${DIGITALKHATT_ENGINE_TEST_FONT}"
   )
+  add_executable(digitalkhatt_old_madinah_probe tests/old_madinah_probe.cpp)
+  target_compile_features(digitalkhatt_old_madinah_probe PRIVATE cxx_std_20)
+  target_link_libraries(digitalkhatt_old_madinah_probe PRIVATE digitalkhatt::engine)
+
+  add_executable(digitalkhatt_old_madinah_conformance
+    tests/old_madinah_conformance.cpp)
+  target_compile_features(digitalkhatt_old_madinah_conformance PRIVATE cxx_std_20)
+  target_link_libraries(digitalkhatt_old_madinah_conformance
+    PRIVATE digitalkhatt::engine Threads::Threads)
+  set(DIGITALKHATT_ENGINE_OLD_MADINAH_TEST_FONT "" CACHE FILEPATH
+      "External static Old Madinah font for the explicit-profile pilot")
+  if(DIGITALKHATT_ENGINE_OLD_MADINAH_TEST_FONT)
+    if(NOT EXISTS "${DIGITALKHATT_ENGINE_OLD_MADINAH_TEST_FONT}")
+      message(FATAL_ERROR "Old Madinah test font does not exist")
+    endif()
+    add_test(NAME digitalkhatt_old_madinah_conformance
+      COMMAND digitalkhatt_old_madinah_conformance
+        "${DIGITALKHATT_ENGINE_OLD_MADINAH_TEST_FONT}"
+        "${DIGITALKHATT_ENGINE_TEST_FONT}")
+  endif()
   if(DIGITALKHATT_ENGINE_PAGE_PARITY_FONT)
     if(NOT EXISTS "${DIGITALKHATT_ENGINE_PAGE_PARITY_FONT}")
       message(FATAL_ERROR

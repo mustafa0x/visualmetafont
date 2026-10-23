@@ -40,6 +40,8 @@ int main(void) {
   page_glyph.struct_size = DK_PAGE_GLYPH_V1_SIZE;
   (void)dk_engine_create_from_file;
   (void)dk_engine_create_from_memory;
+  (void)dk_engine_create_from_file_for_profile_v1;
+  (void)dk_engine_create_from_memory_for_profile_v1;
   (void)dk_engine_destroy;
   (void)dk_engine_upem;
   (void)dk_engine_shape_line_v1;
